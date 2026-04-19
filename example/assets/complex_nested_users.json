@@ -1,0 +1,67 @@
+{
+    "request_id": "req_nested_001",
+    "payload": {
+        "team": {
+            "id": 9001,
+            "name": "核心研发组",
+            "owner": {
+                "id": 100,
+                "name": "团队负责人",
+                "email": "owner@example.com",
+                "age": 36
+            },
+            "groups": {
+                "active": [
+                    {
+                        "id": 1,
+                        "name": "张三",
+                        "email": "zhangsan@example.com",
+                        "age": 28
+                    },
+                    {
+                        "id": 2,
+                        "name": "李四",
+                        "email": "lisi@example.com",
+                        "age": 32
+                    }
+                ],
+                "archived": [
+                    {
+                        "id": 3,
+                        "name": "王五",
+                        "email": "wangwu@example.com",
+                        "age": 25
+                    }
+                ]
+            }
+        },
+        "recommendation": {
+            "primary_user": {
+                "id": 4,
+                "name": "赵六",
+                "email": "zhaoliu@example.com",
+                "age": 30
+            },
+            "backup_users": [
+                {
+                    "id": 5,
+                    "name": "孙七",
+                    "email": "sunqi@example.com",
+                    "age": 27
+                },
+                {
+                    "id": 6,
+                    "name": "周八",
+                    "email": "zhouba@example.com",
+                    "age": 29
+                }
+            ]
+        }
+    },
+    "meta": {
+        "page": 1,
+        "page_size": 20,
+        "has_next": false,
+        "total": 5
+    }
+}

@@ -1,0 +1,10 @@
+{
+    "code": 200,
+    "message": "success",
+    "data": {
+        "id": 42,
+        "name": "赵六",
+        "email": "zhaoliu@example.com",
+        "age": 30
+    }
+}

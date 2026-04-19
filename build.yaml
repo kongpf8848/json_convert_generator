@@ -1,0 +1,10 @@
+builders:
+  json_convert_utils_builder:
+    import: "package:json_convert_generator/json_convert_generator.dart"
+    builder_factories: ["jsonConvertBuilder"]
+    build_extensions:
+      r'$lib$': ['utils/json_convert.generator.dart']
+    auto_apply: dependents
+    build_to: source
+    runs_before: ["json_serializable|json_serializable"]
+
