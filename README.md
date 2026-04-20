@@ -69,7 +69,7 @@ final user = JsonConvert.fromJsonAsT<User>({
 
 ## 识别规则（重要）
 
-当前 builder 会遍历 `lib/**/*.dart`，并忽略以下文件：
+当前 builder 默认会**递归遍历** `lib/` 目录及其所有子目录下的 `.dart` 文件（即 `lib/**/*.dart`），并忽略以下文件：
 
 - `*.g.dart`
 - `*.freezed.dart`
@@ -77,8 +77,52 @@ final user = JsonConvert.fromJsonAsT<User>({
 
 类会被纳入生成映射，当且仅当存在名为 `fromJson` 的 constructor 或 method，且签名满足：
 
-- 仅 1 个参数
-- 参数类型为 `Map<String, dynamic>`
+- 1 个或 2 个参数
+- 第 1 个参数类型为 `Map<String, dynamic>` 或 `Map<String, Object?>`
+- 如果有第 2 个参数，必须是 Function 类型（用于泛型反序列化，如 `T Function(Object?)`）
+
+## 配置选项
+
+在 `build.yaml` 中可自定义扫描目录和排除模式：
+
+```yaml
+targets:
+  $default:
+    builders:
+      json_convert_generator|json_convert_utils_builder:
+        options:
+          # 扫描目录列表（可选，默认为 ['lib']）
+          # 可指定 0 个或多个目录
+          scan_directories:
+            - lib/models
+            - lib/entities
+          
+          # 排除模式列表（可选，默认为 ['*.g.dart', '*.freezed.dart']）
+          exclude_patterns:
+            - '*.g.dart'
+            - '*.freezed.dart'
+            - 'lib/generated/'
+```
+
+### scan_directories
+
+- 类型：`String` 或 `List<String>`
+- 默认：`['lib']`
+- 说明：指定要扫描的目录列表。可以是 0 个或多个目录。扫描时会**递归遍历**所有子目录：
+  - 空列表 `[]`：不扫描任何目录，生成空文件
+  - 单个目录：`lib/models` 或 `['lib/models']`
+  - 多个目录：`['lib/models', 'lib/entities']`
+- 注意：
+  - 目录会自动添加 `lib/` 前缀（如果未指定）
+  - 扫描是递归的，会包含所有子目录中的 `.dart` 文件
+
+### exclude_patterns
+
+- 类型：`List<String>`
+- 默认：`['*.g.dart', '*.freezed.dart']`
+- 说明：指定要排除的文件模式。支持：
+  - 文件后缀模式：如 `*.g.dart`
+  - 路径前缀模式：如 `lib/utils/`
 
 ## 推荐模型写法
 

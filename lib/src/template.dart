@@ -10,11 +10,12 @@ typedef JsonConvertListFunction =
 typedef ConvertExceptionHandler =
 		void Function(Object error, StackTrace stackTrace);
 
-final JsonConvert jsonConvert = JsonConvert();
-
 class JsonConvert {
 	static ConvertExceptionHandler? onError;
-	JsonConvertHelper convertHelper = JsonConvertHelper();
+	static final JsonConvertHelper _convertHelper = JsonConvertHelper();
+
+	// Private constructor to prevent external instantiation
+	JsonConvert._();
 
 	static T? fromJsonAsT<T>(dynamic json) {
 		return null;
@@ -40,11 +41,12 @@ typedef JsonConvertListFunction =
 typedef ConvertExceptionHandler =
 		void Function(Object error, StackTrace stackTrace);
 
-final JsonConvert jsonConvert = JsonConvert();
-
 class JsonConvert {
 	static ConvertExceptionHandler? onError;
-	JsonConvertHelper convertHelper = JsonConvertHelper();
+	static final JsonConvertHelper _convertHelper = JsonConvertHelper();
+
+	// Private constructor to prevent external instantiation
+	JsonConvert._();
 
 	static T? fromJsonAsT<T>(dynamic json) {
 		if (json == null) {
@@ -55,18 +57,18 @@ class JsonConvert {
 		}
 		try {
 			if (json is List) {
-				return jsonConvert._convertList<T>(
+				return _convertList<T>(
 					json.map((dynamic e) => e as Map<String, dynamic>).toList(),
 				);
 			} else {
-				return jsonConvert._convert<T>(json);
+				return _convert<T>(json);
 			}
 		} catch (e, stackTrace) {
-			return jsonConvert._onConvertError<T?>(e, stackTrace, null);
+			return _onConvertError<T?>(e, stackTrace, null);
 		}
 	}
 
-	T? _convert<T>(dynamic value) {
+	static T? _convert<T>(dynamic value) {
 		final String type = T.toString();
 		final String normalizedType = type.endsWith('?')
 				? type.substring(0, type.length - 1)
@@ -93,7 +95,7 @@ class JsonConvert {
 		} else if (normalizedType == "Map" || normalizedType.startsWith("Map<")) {
 			return value as T;
 		} else {
-			final covertFunc = convertHelper.convertFuncMap[normalizedType];
+			final covertFunc = _convertHelper.convertFuncMap[normalizedType];
 			if (covertFunc == null) {
 				throw UnimplementedError(
 					"\$type unimplemented,you can try running the app again",
@@ -106,12 +108,12 @@ class JsonConvert {
 		}
 	}
 
-	T? _convertList<T>(List<Map<String, dynamic>> data) {
+	static T? _convertList<T>(List<Map<String, dynamic>> data) {
 		final String type = T.toString();
 		final String normalizedType = type.endsWith('?')
 				? type.substring(0, type.length - 1)
 				: type;
-		final listConvertFunc = convertHelper.listConvertFuncMap[normalizedType];
+		final listConvertFunc = _convertHelper.listConvertFuncMap[normalizedType];
 		if (listConvertFunc == null) {
 			throw UnimplementedError(
 				"\$type unimplemented,you can try running the app again",
@@ -120,7 +122,7 @@ class JsonConvert {
 		return listConvertFunc(data) as T?;
 	}
 
-	T _onConvertError<T>(Object error, StackTrace stackTrace, T fallback) {
+	static T _onConvertError<T>(Object error, StackTrace stackTrace, T fallback) {
 		if (onError != null) {
 			onError!(error, stackTrace);
 		}

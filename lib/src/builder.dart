@@ -4,7 +4,7 @@ import 'package:glob/glob.dart';
 import 'template.dart';
 
 Builder jsonConvertBuilder(BuilderOptions options) {
-  return JsonConvertBuilder();
+  return JsonConvertBuilder(options);
 }
 
 /// Class information for code generation
@@ -21,24 +21,95 @@ class ClassInfo {
 }
 
 class JsonConvertBuilder extends Builder {
+  final BuilderOptions options;
+
+  JsonConvertBuilder(this.options);
+
   @override
   Map<String, List<String>> get buildExtensions => {
     r'$lib$': ['utils/json_convert.generator.dart'],
   };
+
+  /// Get scan directories from builder options
+  /// Default to ['lib'] if not specified
+  List<String> get _scanDirectories {
+    final dirs = options.config['scan_directories'];
+    if (dirs == null) {
+      return ['lib'];
+    }
+    if (dirs is List) {
+      return dirs.whereType<String>().toList();
+    }
+    if (dirs is String) {
+      return [dirs];
+    }
+    return ['lib'];
+  }
+
+  /// Get exclude patterns from builder options
+  List<String> get _excludePatterns {
+    final excludes = options.config['exclude_patterns'];
+    if (excludes == null) {
+      return ['*.g.dart', '*.freezed.dart'];
+    }
+    if (excludes is List) {
+      return excludes.whereType<String>().toList();
+    }
+    return ['*.g.dart', '*.freezed.dart'];
+  }
+
+  /// Check if a file path should be excluded based on patterns
+  bool _shouldExclude(String path) {
+    final patterns = _excludePatterns;
+    for (final pattern in patterns) {
+      if (pattern.contains('/')) {
+        // Path pattern (e.g., "lib/utils/")
+        if (path.startsWith(pattern)) {
+          return true;
+        }
+      } else {
+        // File name pattern (e.g., "*.g.dart")
+        final regex = RegExp(
+          pattern.replaceAll('.', r'\.').replaceAll('*', '.*') + r'$',
+        );
+        if (regex.hasMatch(path)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
 
   @override
   Future<void> build(BuildStep buildStep) async {
     final annotatedClasses = <String, ClassInfo>{};
     final packageName = buildStep.inputId.package;
 
-    // Scan all lib dart files
-    final allLibFiles = buildStep.findAssets(Glob('lib/**/*.dart'));
+    final scanDirs = _scanDirectories;
 
-    await for (final assetId in allLibFiles) {
-      // Skip generated files and utils
-      if (assetId.path.endsWith('.g.dart') ||
-          assetId.path.endsWith('.freezed.dart') ||
-          assetId.path.startsWith('lib/utils/')) {
+    // If no scan directories specified, skip scanning
+    if (scanDirs.isEmpty) {
+      await buildStep.writeAsString(
+        AssetId(packageName, 'lib/utils/json_convert.generator.dart'),
+        _generateEmptyContent(),
+      );
+      return;
+    }
+
+    // Scan all specified directories
+    final allFiles = <AssetId>[];
+    for (final dir in scanDirs) {
+      final globPattern = dir.startsWith('lib/') || dir == 'lib'
+          ? '$dir/**/*.dart'
+          : 'lib/$dir/**/*.dart';
+      await for (final assetId in buildStep.findAssets(Glob(globPattern))) {
+        allFiles.add(assetId);
+      }
+    }
+
+    for (final assetId in allFiles) {
+      // Skip generated files based on exclude patterns
+      if (_shouldExclude(assetId.path)) {
         continue;
       }
 
@@ -54,6 +125,7 @@ class JsonConvertBuilder extends Builder {
         }
       } catch (e) {
         // Skip files that can't be resolved
+        print('+++++++++++++++Error resolving $assetId: $e');
       }
     }
 
@@ -92,12 +164,48 @@ class JsonConvertBuilder extends Builder {
   bool _isValidFromJsonSignature(ExecutableElement executable) {
     final parameters = _getExecutableParameters(executable);
 
-    if (parameters.length != 1) {
+    // Support both non-generic (1 param) and generic (2 params) fromJson
+    if (parameters.isEmpty || parameters.length > 2) {
       return false;
     }
 
-    final parameterType = (parameters.first as dynamic).type;
-    return parameterType.getDisplayString() == 'Map<String, dynamic>';
+    // First parameter must be Map<String, dynamic> or Map<String, Object?>
+    final firstParamType = (parameters.first as dynamic).type;
+    final firstTypeString = _getTypeDisplayString(firstParamType);
+    final isValidFirstParam = firstTypeString == 'Map<String, dynamic>' ||
+        firstTypeString == 'Map<String, Object?>';
+
+    if (!isValidFirstParam) {
+      return false;
+    }
+
+    // If has 2nd parameter, it should be a function type (generic deserializer)
+    if (parameters.length == 2) {
+      final secondParamType = (parameters[1] as dynamic).type;
+      final secondTypeString = _getTypeDisplayString(secondParamType);
+      // Check if it's a function type like "T Function(Object?)" or "T Function(dynamic)"
+      if (!secondTypeString.contains('Function')) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /// Get type display string with analyzer API compatibility
+  String _getTypeDisplayString(dynamic type) {
+    // analyzer API compatibility:
+    // - old: getDisplayString()
+    // - new: getDisplayString(withNullability: bool)
+    try {
+      return type.getDisplayString(withNullability: true);
+    } catch (_) {}
+
+    try {
+      return type.getDisplayString();
+    } catch (_) {}
+
+    return '';
   }
 
   List<dynamic> _getExecutableParameters(ExecutableElement executable) {
